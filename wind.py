@@ -1,12 +1,15 @@
 from tkinter import *
 from PIL import ImageTk, Image
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import os
-
+global SearchingParams
+SearchingParams = [-64529860,20,"female", False,18, 22 , False]#id, num posts,sex, Age, minAge, maxAge, needPhone
 global collectedInfo
 collectedInfo= []
 global numUser
 numUser = 0
+global activeSearch
+activeSearch = False
 def callback(url):
     import webbrowser
     webbrowser.open_new(url)
@@ -72,7 +75,12 @@ def BACK():
     if (numUser == 0):
         global b0
         b0.configure(state=DISABLED)
+
+
+
 def OnlineSearching():
+    global activeSearch
+    activeSearch = True
     import botv0
     global collectedInfo
     global b1
@@ -82,11 +90,11 @@ def OnlineSearching():
     global labelName
     global curr
     global sex
+    global SearchingParams
+    numUser = 0
+    #b0.configure(state = DISABLED)#todo:и как её заблочить))
     b1.configure(state = DISABLED)
-    if(sex == 0):
-        collectedInfo = botv0.ReturnUserInfo("female")
-    else:
-        collectedInfo = botv0.ReturnUserInfo("male")
+    collectedInfo = botv0.ReturnUserInfo(SearchingParams)
     if(collectedInfo != []):
         ShowInfo()
         b1.destroy()
@@ -98,23 +106,26 @@ def OnlineSearching():
         curr.configure(text = str(numUser+1)+"/" +collectedInfo[0][-1])
         if(collectedInfo.__len__() == 1):
             b1.configure(state = DISABLED)
+    activeSearch = False
 
 def OnlineSearching1():
-    import threading
-    t = threading.Thread(target=OnlineSearching)
-    t.daemon = True
-    t.start()
-    return 0
-
-global sex
-sex = 0
+    global activeSearch
+    if(activeSearch == False):
+        import threading
+        t = threading.Thread(target=OnlineSearching)
+        t.daemon = True
+        t.start()
+        return 0
+    else:
+        messagebox.showinfo("Поиск уже идёт", "Дождитесь окончания поиска или нажмите " + '"'+"стоп"+'"')
+def StopProc():
+    messagebox.showinfo("Мои извинения", "к сожалению эта функция ещё не написана")
 def SwitchPhoto():
-    global sex
-    if(sex == 1):
-        sex = 0
+    if(SearchingParams[2] == "male"):
+        SearchingParams[2] = "female"
         x = "girl.jpg"
     else:
-        sex = 1
+        SearchingParams[2] = "male"
         x = "man.jpg"
     img1 = Image.open(x)
     img1 = img1.resize((400, 400), Image.ANTIALIAS)
@@ -134,6 +145,8 @@ def CreateWindow():
     root.config(menu = mainmenu)
     import window
     mainmenu.add_command(label='Настройки', command = window.Creator)
+    mainmenu.add_command(label='Начать поиск',command = OnlineSearching1)
+    mainmenu.add_command(label='Стоп',command = StopProc)
 
 
     x = "girl.jpg"

@@ -1,10 +1,11 @@
-﻿import time
-import vk_api
-
-#import window
-
-login = 'login'
-password = 'password'
+﻿import vk_api
+'''
+1.найти id постов  GetLastComminityIDPosts
+2.найти единожды id людей лайкнувших посты CreateListOfActiveUsers уже юзает GetLastComminityIDPosts также юзает CheckLikes
+3.фильтруем найденных пользователей FiltrUser
+'''
+login = '79536894935'
+password = 'balisu81'
 def WallInfo(vk, owner_id = 40620395, domain = ''):
     '''Информация о стене пользователя'''
     #пример использования WallInfo(vk,'',"nestondart")
@@ -31,13 +32,16 @@ def GetLastComminityIDPosts(vk,  owner_id = -64529860, count = 100):
         response = vk.wall.get(owner_id = owner_id, count = count)
     else:
         print("count:=100")
-        response = vk.wall.get(owner_id=owner_id,count = 100)
+        response = vk.wall.get(owner_id=owner_id,count = 100)#todo:разобраться со срезами
 
     idPostsList = []
     for i in response['items']:
-        if (i['marked_as_ads'] == 0):
+        if('marked_as_ads' in i):
+            if (i['marked_as_ads'] == 0):
+                idPostsList.append(i['id'])
+        else:
             idPostsList.append(i['id'])
-        '''все параметры которые можно вытащитьid from_id owner_id date marked_as_ads post_type text attachments post_source comments likes  reposts views is_favorite'''
+    '''все параметры которые можно вытащитьid from_id owner_id date marked_as_ads post_type text attachments post_source comments likes  reposts views is_favorite'''
     return idPostsList
 def ShowUserInfo(vk, id = 40620395, paramList = ["sex","bdate","site","education","activity","relation","online"]):
     '''вывод информации о пользователе'''
@@ -115,9 +119,9 @@ def StealPhoto(vk,ID):
     result.append(info[0]['first_name'])
     result.append(info[0]['photo_max'])
     return result
-def FiltrUser(vk,sex,idList,minAge =18,maxAge = 22, allowNotBF = False):
+def FiltrUser(vk,sex,idList,minAge =18,maxAge = 22, allowNotBF = False, needPhone = False):
     '''функция принимает список id и возвращает список только удовлетворяющих выборке пользователей'''
-    paramList = ["sex", "bdate", "relation","photo"]
+    paramList = ["sex", "bdate", "relation","photo","contacts"]
     roadToLen = 0
     resultList = []
     while(roadToLen != idList.__len__()):
@@ -130,15 +134,26 @@ def FiltrUser(vk,sex,idList,minAge =18,maxAge = 22, allowNotBF = False):
         info = vk.users.get(user_ids=currentCheck, fields=paramList)
         for i in range(info.__len__()):
             approvedFlag = True
-            if 'sex' in info[i]:
-                if (info[i]['sex'] == 2):
-                    if(sex == "female"):
+            if(sex != "none"):
+                if 'sex' in info[i]:
+                    if (info[i]['sex'] == 2):
+                        if(sex == "female"):
+                            approvedFlag = False
+                    if (info[i]['sex'] == 1):
+                        if(sex == "male"):
+                            approvedFlag = False
+                else:
+                    approvedFlag = False
+            if(needPhone == True):
+                if( "mobile_phone" in info[i]):
+                    if(info[i]['mobile_phone'] == ""):
                         approvedFlag = False
-                if (info[i]['sex'] == 1):
-                    if(sex == "male"):
+                    if(info[i]['mobile_phone'].__len__() != 11):
                         approvedFlag = False
-            else:
-                approvedFlag = False
+                    if(info[i]['mobile_phone'].find('*')!= -1):
+                        approvedFlag = False
+                else:
+                    approvedFlag = False
             if not ('photo' in info[i]):
                 approvedFlag = False
             if ('relation' in info[i]):
@@ -187,11 +202,8 @@ def StartActiveSearching(vk,minAge = 18,maxAge = 22, allowNotBD = False,count = 
                 res = vk.wall.getById(posts=sendIDPost)
                 print(res[0]['text'])
                 print("id posta: " + str(listActive[1][j][1]))
-        #print(ShowUserInfo(vk,listActive1[i]))
-        #print()
-        #print("---------------------------")
 
-def ReturnUserInfo(sex = "female",minAge = 18,maxAge = 22, allowNotBD = False,count = 100, owner_id =-64529860):
+def ReturnUserInfo(SearchingParams):
     vk_session = vk_api.VkApi(login, password)
     try:
         vk_session.auth(token_only=True)
@@ -200,10 +212,10 @@ def ReturnUserInfo(sex = "female",minAge = 18,maxAge = 22, allowNotBD = False,co
         return 0
     vk = vk_session.get_api()
     result=[]
-    listActive = CreateListOfActiveUsers(vk, count, owner_id)
+    listActive = CreateListOfActiveUsers(vk, int(SearchingParams[1]), int(SearchingParams[0]))
     import wind
     wind.pointAllSearching.configure(text= "всего различных пользователей: " + str(listActive[0].__len__()))
-    listActive1 = FiltrUser(vk, sex, listActive[0], minAge, maxAge, allowNotBD)
+    listActive1 = FiltrUser(vk, SearchingParams[2], listActive[0], int(SearchingParams[4]), int(SearchingParams[5]), SearchingParams[3], SearchingParams[6])#вот сюда новые параметры
     wind.pointSearching.configure(text ="пользователей после фильтрации: " + str(listActive1.__len__()) )
     for i in range(listActive1.__len__()):
         resultmin = []
@@ -211,7 +223,7 @@ def ReturnUserInfo(sex = "female",minAge = 18,maxAge = 22, allowNotBD = False,co
         resultmin.append(StealPhoto(vk, listActive1[i]))
         for j in range(listActive[1].__len__()):
             if (listActive1[i] == listActive[1][j][0]):
-                sendIDPost = str(owner_id) + "_" + str(listActive[1][j][1])
+                sendIDPost = str(SearchingParams[0]) + "_" + str(listActive[1][j][1])
                 res = vk.wall.getById(posts=sendIDPost)
                 resultmin.append(res[0]['text'])
         paramList = ["bdate"]
@@ -220,16 +232,16 @@ def ReturnUserInfo(sex = "female",minAge = 18,maxAge = 22, allowNotBD = False,co
             if (info[0]['bdate'].count('.') == 2):
                 age = CalculateAge(info[0]['bdate'])
                 resultmin.append(age)
+            else:
+                resultmin.append("-")
+        else:
+            resultmin.append("-")
         result.append(resultmin)
     result[0].append(str(listActive1.__len__()))
     return result
 
 
-'''
-1.найти id постов  GetLastComminityIDPosts
-2.найти единожды id людей лайкнувших посты CreateListOfActiveUsers уже юзает GetLastComminityIDPosts также юзает CheckLikes
-3.фильтруем найденных пользователей FiltrUser
-'''
+
 
 def main():
     '''vk_session = vk_api.VkApi(login, password)
@@ -245,11 +257,3 @@ def main():
     wind.CreateWindow()
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-#-64529860
-#print(vk.wall.post(message='Hello world!'))
